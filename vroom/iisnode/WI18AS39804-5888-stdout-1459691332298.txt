@@ -1,2 +1,0 @@
-deploy path is set to /node/vroom/
-Listening on \\.\pipe\8e64eb82-9b72-4cb2-b1b3-03522accd887
