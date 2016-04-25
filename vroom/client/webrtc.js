@@ -14,9 +14,17 @@ function pageReady() {
     localVideo = document.getElementById('localVideo');
     remoteVideo = document.getElementById('remoteVideo');
 
-    serverConnection = new WebSocket('wss://server1095.cs.technik.fhnw.ch/vroom');
-    serverConnection.onmessage = gotMessageFromServer;
 
+    serverConnection = io.connect('https://server1095.cs.technik.fhnw.ch', {path: '/vroom/socket.io'});
+	//serverConnection.onmessage = gotMessageFromServer;
+
+	
+	serverConnection.on('message', function (message){
+  gotMessageFromServer(message);
+		});
+	
+	
+	
     var constraints = {
         video: true,
         audio: true,
@@ -75,18 +83,24 @@ peerConnection.close();
 }
 
 
-
 function gotMessageFromServer(message) {
     if(!peerConnection) start(false);
-
-    var signal = JSON.parse(message.data);
+	console.log(message);
+    var signal = JSON.parse(message);
+console.log(signal); 
     if(signal.sdp) {
+		console.log("sdp found!")
         peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp), function() {
             peerConnection.createAnswer(gotDescription, errorHandler);
         }, errorHandler);
+		
     } else if(signal.ice) {
+		console.log("ice found!")
         peerConnection.addIceCandidate(new RTCIceCandidate(signal.ice));
     }
+	else{
+		console.log("nothing found!");
+	}
 }
 
 function gotIceCandidate(event) {
