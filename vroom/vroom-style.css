@@ -1,4 +1,7 @@
-
+html, body {
+	margin: 0;
+	padding: 0;
+}
 
 .localVideo{
    position: absolute;
@@ -9,8 +12,7 @@
 }
 
 .remoteVideo{
-width:100%;
-height:100%;
+height:100vh;
 
 }
 
