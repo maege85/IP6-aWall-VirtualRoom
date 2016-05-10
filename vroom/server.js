@@ -5,17 +5,13 @@ var express = require('express'),
 var deployPath = process.env.deployPath || "";
 console.log('deploy path is set to ' + deployPath);
 
-	app.use(deployPath , express.static(__dirname)); // client code goes in static directory
 
-//
-
-app.get('/login', function(req, res,next) {
-    res.sendFile(__dirname + '/login.html');
+app.use(deployPath + 'conference',function(req, res,next) {
+		res.sendFile(__dirname + '/conference.html'); 
 });
 
-app.get('/', function(req, res,next) {
-    res.sendFile(__dirname + '/index.html');
-});
+app.use(deployPath  + 'css' , express.static(__dirname + '/css')); // client code goes in static directory
+
 
 var membersPerRoom = new Object(); 
 var clientInfos = [];
@@ -26,9 +22,8 @@ var io = require('socket.io').listen(server, { path : '/vroom/socket.io' });
         socket.on('create_join', function (data) {
 			log(socket,'Connectedcount=' +connectedCount);
 				log(socket,'room:' + data.room);
-				log(socket,'Port '+ process.env.PORT); 
-				addUserRoomIfNotFull(socket, data);
-			
+				log(socket,'Port '+ process.env.PORT);
+					addUserRoomIfNotFull(socket, data);		
         });
 		
         socket.on('message', function (message) {
@@ -38,7 +33,7 @@ var io = require('socket.io').listen(server, { path : '/vroom/socket.io' });
 		
 		socket.on('login', function (user) {
 			disconnectExistingUser(socket, user);
-			clientInfos[user]= {id:socket.id}; 
+			clientInfos[user]= {id:socket.id, inRoom:false}; 
 			socket.emit('has-loged-in', membersPerRoom);
         });
 		
@@ -69,17 +64,33 @@ var io = require('socket.io').listen(server, { path : '/vroom/socket.io' });
 		
     });
 
-server.listen(process.env.PORT, function () { console.log('Listening on ' + process.env.PORT) });
+server.listen(process.env.PORT, function () { console.log('Listening on ' + process.env.PORT)});
 //////////////////////////////////////////////////////
 
+
+function checkIfAllowedToConnect(user){
+	if(clientInfos[user] == null || typeof clientInfos[user] == 'undefined') {
+			console.log("User " + user + " is not logged in!");
+		return false;
+	}
+	if(clientInfos[data.user].inRoom == true){
+			console.log("User " + user + " is already connected!");
+		return false;
+	}
+	return false;
+}
+
+//////////////////////////////////////////////////////
 function addUserRoomIfNotFull(socket, data){
 	//First User has connected
+	
+								
 				if (connectedCount == 0) {
 					connectedCount += 1;
 					socket.join(data.room);
 					var members=[];
-					members.push(data.user);
-					clientInfos[data.user].isConnected = true;
+					members.push(clientInfos[data.user]);
+					clientInfos[data.user].inRoom = true;
 					clientInfos[data.user].room = data.room;
 					var roomInfos =  {roomName:data.room, members:members, isFull: false}; 
 					membersPerRoom[data.room] = roomInfos;
@@ -87,8 +98,8 @@ function addUserRoomIfNotFull(socket, data){
 					//Second User has connected
 				} else if (connectedCount == 1) {
 					connectedCount += 1;
-					clientInfos[data.user].isConnected = true;
-					membersPerRoom[data.room].members.push(data.user);
+					clientInfos[data.user].inRoom = true;
+					membersPerRoom[data.room].members.push(clientInfos[data.user]);
 					membersPerRoom[data.room].isFull = true;
 					io.sockets.in(data.room).emit('join', membersPerRoom[data.room]);
 					socket.join(data.room);
@@ -96,7 +107,7 @@ function addUserRoomIfNotFull(socket, data){
 				}
 				else {
 				log(socket,"room is full! Nr. of members: " + connectedCount);
-				clientInfos[user].isConnected = false;
+				clientInfos[user].inRoom = false;
 				socket.emit('full', membersPerRoom[data.room]);
 				}
 }
@@ -108,7 +119,7 @@ function disconnectExistingUser(socket, user){
 			for (var userInList in clientInfos) {
 			  if (clientInfos.hasOwnProperty(userInList)) {
 				  if(userInList==user){
-					  if (typeof io.sockets.sockets[clientInfos[userInList].id] != 'undefined') {
+					 0
 				
 							if(clientInfos[user].isConnected){
 								log(socket, "User " + user + " has already been connected! disconnect existing user!");
@@ -127,7 +138,7 @@ function disconnectExistingUser(socket, user){
 			}
 	
 	
-}
+
 
 
 ////////////////////////////////////////////////////7
