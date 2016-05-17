@@ -1,0 +1,150 @@
+
+<template class="content">
+    <awall-widget>
+        <awall-widget-title value="Virtual Team Room"></awall-widget-title>
+        <awall-widget-size-default>
+		
+			
+		
+
+           		<div id="message"> </div>
+					<div id="loginElements">
+						<input type="button" id="loginButton1" onclick="loginAsUser1()" value="Login As Team 1"/>
+						<input type="button" id="loginButton2" onclick="loginAsUser2()" value="Login As Team 2"/>
+					</div>
+					
+					<div id="roomElements" style="display: none;">
+
+						<div id="memberList"></div>
+						<input type="button" id="enterRoomButton" onclick="enterRoom()" value="Enter Room 1"/>
+						<input type="button" id="logoutButton" onclick="logout()" value="Logout"/>
+					</div>
+        </awall-widget-size-default>
+    </awall-widget>
+</template>
+
+
+
+<script>
+	var user;
+	var isLoggedIn = false;
+	const ROOM_NAME ="Room1";
+	var socket;
+	function prepare(){
+	socket= io.connect('https://server1095.cs.technik.fhnw.ch', {path: '/vroom/socket.io'});
+	
+
+
+ 
+
+	socket.on('has-loged-in', function (roomList) {
+	console.log("Received: has-loged-in");
+		if(roomList.hasOwnProperty(ROOM_NAME)){
+			setRoomMembers(roomList[ROOM_NAME].members);
+			setRoomToFull(roomList[ROOM_NAME].isFull);
+		}
+		else{
+			setRoomMembers("No one in Room1 yet..");
+		}
+		
+		showRoomElements();
+		
+	});
+
+
+	
+	socket.on('log', function (message){
+	  console.log(message);
+	});
+
+	}
+  
+
+	////////////////////////////////////////////////////
+	function loginAsUser1(){
+	user = "TEAM1";
+	login("TEAM1");
+	
+	}
+	
+	function loginAsUser2(){
+	user = "TEAM2";
+	login("TEAM2");
+	}
+	
+	
+	function login(user){
+	if(socket == null){
+	prepare();
+	}
+	console.log('send login user ' + user);
+	socket.emit('login', user);
+	isLoggedIn = true;
+	}
+	////////////////////////////////////////////////////
+
+	function logout(){
+		console.log('logout');
+		socket.emit('logout', user);
+		isLoggedIn = false;
+		socket = null;
+		showLoginElements();
+
+	}
+
+
+	////////////////////////////////////////////////////
+	function enterRoom(){
+		window.open("https://server1095.cs.technik.fhnw.ch/vroom/conference?user=" + user,'_blank');
+	}
+
+	////////////////////////////////////////////////////
+
+	////////////////////////////////////////////////////
+
+	function setRoomMembers(roomMembers){
+	 if (typeof roomMembers != 'undefined') {
+		$("body /deep/ #memberList").html("Members in Room1: " +roomMembers.toString());
+		}
+	}
+
+	////////////////////////////////////////////////////
+
+	function setRoomToFull(isFull){
+	if(isFull){
+	$("#enterRoomButton").prop("disabled",true);
+		$('#message' ).html("<div>Room is full. You can not join</div>"); 
+		}
+		else{
+		$('#message' ).html("");
+		$("#enterRoomButton").prop("disabled",false);
+		}
+
+	}
+
+	////////////////////////////////////////////////////
+
+	function showRoomElements(){
+	$("body /deep/ #roomElements").show();
+   $('body /deep/ #loginElements').hide();
+   console.log("hihi");
+	}
+
+	function showLoginElements(){
+	$("body /deep/ #roomElements").css("display","none");
+		$('body /deep/ #loginElements').css("display","block");
+	}
+
+
+
+////////////////////////////////////////////////
+    function sendMessage(message) {
+        console.log('Client sending message: ', message);
+        socket.emit('message', message);
+    }
+
+////////////////////////////////////////////////////
+
+
+
+</script>
