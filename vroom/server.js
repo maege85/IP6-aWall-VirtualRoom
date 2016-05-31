@@ -12,19 +12,14 @@ app.use(deployPath + 'conference',function(req, res,next) {
 
 app.use(deployPath  + 'css' , express.static(__dirname + '/css')); // client code goes in static directory
 
-
-var membersPerRoom = new Object(); 
-var clientInfos = [];
 var connectedCount = 0;
-var io = require('socket.io').listen(server, { path : '/vroom/socket.io' });
+var io = require('socket.io').listen(server, { path : '/vroom/socket.io' })
+
 	io.sockets.on('connection', function (socket) {
 		
         socket.on('create_join', function (data) {
-			disconnectExistingUser(socket, data.user);
-			clientInfos[data.user]= {id:socket.id}; 
 			log(socket,'Connectedcount=' +connectedCount);
 			log(socket,'room:' + data.room);
-			log(socket,'Port '+ process.env.PORT);
 			addUserRoomIfNotFull(socket, data);		
         });
 		
@@ -32,115 +27,46 @@ var io = require('socket.io').listen(server, { path : '/vroom/socket.io' });
             socket.broadcast.emit('message', message);
         });
 		
-		
-		socket.on('login', function (user) {
-			disconnectExistingUser(socket, user);
-			socket.emit('has-loged-in', membersPerRoom);
-        });
-		
 
         socket.on('disconnect', function (data) {
             connectedCount = 0;
 			socket.leave(data);
-			socket.emit('full', false);
-			socket.broadcast.emit('message', "bye");
-			socket.emit("message", "bye");			
+			socket.broadcast.emit('message', "bye");		
         });
-		
-		  socket.on('hangup', function (data) {
+	
+		  socket.on('hangup', function (room) {
             connectedCount = 0;
-			socket.broadcast.emit('full', false);
 			socket.broadcast.emit('message', "bye");
-			membersPerRoom[data.room]= new Object();
         });
-		
-		socket.on('logout', function (user) {
-			disconnectExistingUser(socket, user);
-			 var index = clientInfos.indexOf(user);
-			 if (index > -1) {
-				clientInfos.splice(index, 1);
-			}
-        });
-
+	
 		
     });
 
 server.listen(process.env.PORT, function () { console.log('Listening on ' + process.env.PORT)});
-//////////////////////////////////////////////////////
 
-
-function checkIfAllowedToConnect(user){
-	if(clientInfos[user] == null || typeof clientInfos[user] == 'undefined') {
-			console.log("User " + user + " is not logged in!");
-		return false;
-	}
-	if(clientInfos[data.user].inRoom == true){
-			console.log("User " + user + " is already connected!");
-		return false;
-	}
-	return false;
-}
 
 //////////////////////////////////////////////////////
 function addUserRoomIfNotFull(socket, data){
-	//First User has connected
-								
+				if(connectedCount >= 2 ){
+					log(socket,"room is full! Nr. of members: " + connectedCount + ". Kick everybody out of room!");
+					socket.broadcast.emit("message", "bye");
+					connectedCount = 0;
+				}				
 				if (connectedCount == 0) {
 					connectedCount += 1;
 					socket.join(data.room);
-					var members=[];
-					members.push(clientInfos[data.user]);
-					clientInfos[data.user].inRoom = true;
-					clientInfos[data.user].room = data.room;
-					var roomInfos =  {roomName:data.room, members:members, isFull: false}; 
-					membersPerRoom[data.room] = roomInfos;
-					socket.emit('created', roomInfos);
+					socket.emit('created', data.room);
 					//Second User has connected
 				} else if (connectedCount == 1) {
 					connectedCount += 1;
-					clientInfos[data.user].inRoom = true;
-					membersPerRoom[data.room].members.push(clientInfos[data.user]);
-					membersPerRoom[data.room].isFull = true;
-					io.sockets.in(data.room).emit('join', membersPerRoom[data.room]);
+					io.sockets.in(data.room).emit('join', data.room);
 					socket.join(data.room);
-					socket.emit('joined', membersPerRoom[data.room]);
+					socket.emit('joined', data.room);
 				}
-				else {
-				log(socket,"room is full! Nr. of members: " + connectedCount);
-				clientInfos[data.user].inRoom = false;
-				socket.emit('full', membersPerRoom[data.room]);
+				else{
+					log(socket,"Something is wrong. connectedCount=" + connectedCount);
 				}
 }
-
-///////////////////////////////////////////////////////
-
-
-function disconnectExistingUser(socket, user){
-			for (var userInList in clientInfos) {
-			  if (clientInfos.hasOwnProperty(userInList)) {
-				  if(userInList==user){
-					 0
-				
-							if(clientInfos[user].inRoom){
-								log(socket, "User " + user + " has already been connected! disconnect existing user!");
-								socket.broadcast.emit("log", "User " + user + " has loged in again. Disconnect session.");
-								clientInfos[user].inRoom = false;
-								socket.broadcast.emit('message', "bye");
-								connectedCount = 0;
-								if(typeof io.sockets.sockets[clientInfos[userInList].id] != 'undefined'){
-								io.sockets.sockets[clientInfos[userInList].id].disconnect();
-								}
-								var roomUserWasConnected = clientInfos[user].room;
-								membersPerRoom[roomUserWasConnected] = new Object();
-							}
-							
-					  }
-				  }
-			  }
-			}
-	
-	
-
 
 
 ////////////////////////////////////////////////////7

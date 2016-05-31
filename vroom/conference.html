@@ -10,8 +10,6 @@
 		<link rel="stylesheet" type="text/css" href="css/vroom-style.css">
     </head>
     <body>
-
-	<input type="button" id="hangupButton" onclick="hangup()" value="Hangup"/>
 		<div id="message"></div>
             <video id="localVideo"  autoplay controls class="localVideo"></video>        
             <video id="remoteVideo" autoplay controls class="remoteVideo"></video>       
@@ -28,7 +26,7 @@
     var turnReady;
     var pc_config = {'iceServers': [{'url': 'stun:45.79.136.43:3478'}]}; // make this stun server on our droplet...
     var sdpConstraints = {'mandatory': {'OfferToReceiveAudio':true, 'OfferToReceiveVideo':true}};
-			
+	var isClosed = false;	
     window.RTCPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
     window.RTCIceCandidate = window.RTCIceCandidate || window.mozRTCIceCandidate || window.webkitRTCIceCandidate;
     window.RTCSessionDescription = window.RTCSessionDescription || window.mozRTCSessionDescription || window.webkitRTCSessionDescription;
@@ -37,32 +35,32 @@
    const ROOM_NAME ="Room1";
    
     var socket = io.connect('https://server1095.cs.technik.fhnw.ch', {path: '/vroom/socket.io'});
-		var user = getUrlParameter("user");
-		console.log("user is: " + user);
-		var data = {room:ROOM_NAME, user:user}; 
+
+		var data = {room:ROOM_NAME}; 
 			console.log('send create_or_join', data);
 			socket.emit('create_join', data);
    
-    socket.on('created', function (roomInfos) {
-        console.log('Created room ' + roomInfos.roomName);
-		console.log('members ' + roomInfos.members.toString());
+    socket.on('created', function (data) {
+        console.log('Created room ' + data.room);
         isInitiator = true;
 		showMessage("Waiting for participant...");
     });
-    socket.on('full', function (isFalse) {
-        console.log('Room  is full= ' +isFalse);
-    });
-    socket.on('join', function (roomInfos) {
-        console.log('Another peer made a request to join room ' + roomInfos.roomName);
-        console.log('This peer is the initiator of room ' + roomInfos.roomName + '!');
+    socket.on('join', function (data) {
+        console.log('Another peer made a request to join room ' + data.room);
+        console.log('This peer is the initiator of room ' + data.room + '!');
         isChannelReady = true;
 		showMessage("");
     });
-    socket.on('joined', function (roomInfos) {
-        console.log('This peer has joined room ' + roomInfos.roomName);
+    socket.on('joined', function (data) {
+        console.log('This peer has joined room ' + data.room);
         isChannelReady = true;
 		showMessage("");
     });
+
+	socket.on('log', function (message){
+	  console.log(message);
+	});
+
 	
 	socket.on('log', function (message){
 	  console.log(message);
@@ -75,7 +73,7 @@
         console.log('Client sending message: ', message);
         socket.emit('message', message);
     }
-    socket.on('message', function (message) {
+		socket.on('message', function (message) {
         console.log('Client received message:', message);
         if (message === 'got user media') {
             maybeStart();
@@ -90,8 +88,8 @@
         } else if (message.type === 'candidate' && isStarted) {
             var candidate = new RTCIceCandidate({candidate: message.candidate});
             pc.addIceCandidate(candidate);
-        } else if (message === 'bye' && isStarted) {
-            hangup();
+        } else if (message === 'bye' && !isClosed) {
+            closeStream();
         }
     });
 	
@@ -188,29 +186,34 @@
     function handleRemoteStreamRemoved(event) {
         console.log('Remote stream removed. Event: ', event);
     }
-    function hangup() {
-        console.log('Hanging up.');
+	function hangup(){
+	console.log('Hanging up.');
+	socket.emit("hangup",ROOM_NAME);
+	closeStream();
+	
+
+	}
+	/////////////////////////////////////////////////////////
+    function closeStream() {
+		showMessage("");
+        console.log('close stream.');
+		isClosed = true;
         isStarted = false;
-		if(typeof pc != 'undefined'){
+		isInitiator = false;
+		if(typeof pc != 'undefined' && pc != null){
         pc.close();
 		}
         pc = null;
+		localVideo.pause();
+		localVideo.src ="";
+		localVideo.load();
+		remoteVideo.pause();
+		remoteVideo.src = "";
+		remoteVideo.load();
+		socket.disconnect();
+         window.close();
     }
 	
-	function getUrlParameter(sParam) {
-    var sPageURL = decodeURIComponent(window.location.search.substring(1)),
-        sURLVariables = sPageURL.split('&'),
-        sParameterName,
-        i;
-
-    for (i = 0; i < sURLVariables.length; i++) {
-        sParameterName = sURLVariables[i].split('=');
-
-        if (sParameterName[0] === sParam) {
-            return sParameterName[1] === undefined ? true : sParameterName[1];
-        }
-    }
-}
-    
+ 
    
 </script>
